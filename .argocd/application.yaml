@@ -1,0 +1,37 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: donweather-ms-georesolve-dev
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: dev-microservices
+
+  source:
+    repoURL: https://github.com/opusdvs/DonWeather-ms-georesolve.git
+    targetRevision: dev
+    path: .helm/donweather-ms-georesolve
+    helm:
+      valueFiles:
+        - values.yaml
+
+  destination:
+    name: dev-cluster
+    namespace: donweather
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
