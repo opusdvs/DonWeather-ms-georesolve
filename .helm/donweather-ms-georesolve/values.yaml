@@ -1,0 +1,81 @@
+# Default values for donweather-ms-georesolve
+replicaCount: 2
+
+image:
+  repository: buildbyte-container-registry.registry.twcstorage.ru/donweather-ms-georesolve
+  pullPolicy: IfNotPresent
+  tag: "dev"
+  digest: ""
+
+
+imagePullSecrets:
+  - name: registry-docker-registry
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Environment variables
+env:
+  env: "dev"
+
+# Vault Secrets Operator (HashiCorp VSO)
+# Секрет создаётся оператором из одного пути Vault KV. В пути должны быть ключи:
+# db-password, db-user, db-host, db-port, db-name
+vaultSecretOperator:
+  enabled: true
+  vaultAuthRef: "vault-secrets-operator/default" # имя VaultAuth в том же namespace или namespace/name
+  mount: "secret"                                # mount KV engine в Vault
+  path: "donweather-ms-georesolve"               # путь к секрету в Vault (все ключи из этого пути попадут в K8s Secret)
+  type: "kv-v2"
+  refreshAfter: "1h"
+  # version: 2 # опционально, для kv-v2
+
+# Health check configuration
+livenessProbe:
+  httpGet:
+    path: /health/liveness
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health/readiness
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
