@@ -35,9 +35,8 @@ spec:
           args:
             - |
               set -e
-              echo "=== Creating PostGIS extension, table and index ==="
+              echo "=== Creating table and index ==="
               psql "$DATABASE_URL" <<'EOSQL'
-              CREATE EXTENSION IF NOT EXISTS postgis;
               CREATE TABLE IF NOT EXISTS cities (
                   id   SERIAL PRIMARY KEY,
                   name TEXT NOT NULL,
