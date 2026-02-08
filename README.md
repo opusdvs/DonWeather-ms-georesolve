@@ -162,9 +162,12 @@ PostgreSQL для Dev может быть в Services кластере (дост
    ```sql
    CREATE USER georesolve WITH PASSWORD 'ваш_пароль';
    CREATE DATABASE georesolve OWNER georesolve;
+   GRANT ALL ON DATABASE georesolve TO georesolve;
    \c georesolve
    CREATE EXTENSION IF NOT EXISTS postgis;
    GRANT USAGE, CREATE ON SCHEMA public TO georesolve;
+   GRANT ALL ON ALL TABLES IN SCHEMA public TO georesolve;
+   GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO georesolve;
    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO georesolve;
    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO georesolve;
    ```

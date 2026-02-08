@@ -54,16 +54,11 @@ func main() {
 	handler := delivery.NewCityHandler(service)
 
 	healthHandler := delivery.NewHealthHandler(db)
-	healthMux := http.NewServeMux()
-	healthMux.HandleFunc("/health/liveness", healthHandler.LivenessProbe)
-	healthMux.HandleFunc("/health/readiness", healthHandler.ReadinessProbe)
-
-	middlewareMux := http.NewServeMux()
-	middlewareMux.Handle("/api/v1/georesolve", middleware.TraceMiddleware(http.HandlerFunc(handler.GetCityByCoordinates)))
 
 	mainMux := http.NewServeMux()
-	mainMux.Handle("/", middlewareMux)
-	mainMux.Handle("/health", healthMux)
+	mainMux.HandleFunc("/health/liveness", healthHandler.LivenessProbe)
+	mainMux.HandleFunc("/health/readiness", healthHandler.ReadinessProbe)
+	mainMux.Handle("/api/v1/georesolve", middleware.TraceMiddleware(http.HandlerFunc(handler.GetCityByCoordinates)))
 
 	server := &http.Server{
 		Addr:    ":8080",
