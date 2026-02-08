@@ -60,11 +60,7 @@ spec:
                   lat      DOUBLE PRECISION,
                   lng      DOUBLE PRECISION
               );
-              EOSQL
-
-              psql "$DATABASE_URL" -c "\copy cities_import (city, region, district, lat, lng) FROM '/data/koord_russia.csv' WITH (FORMAT csv, DELIMITER ';', HEADER true, ENCODING 'UTF8')"
-
-              psql "$DATABASE_URL" <<'EOSQL'
+              \copy cities_import (city, region, district, lat, lng) FROM '/data/koord_russia.csv' WITH (FORMAT csv, DELIMITER ';', HEADER true, ENCODING 'UTF8')
               INSERT INTO cities (name, geom)
               SELECT city, ST_SetSRID(ST_Point(lng, lat), 4326)
               FROM cities_import
