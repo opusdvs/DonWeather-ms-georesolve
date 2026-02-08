@@ -61,6 +61,15 @@ vaultSecretOperator:
   refreshAfter: "1h"
   # version: 2 # опционально, для kv-v2
 
+# Database init Job (Helm pre-install hook)
+# Создаёт таблицу cities с PostGIS и загружает справочник городов из CSV.
+# Запускается один раз при helm install. Если таблица уже содержит данные — импорт пропускается.
+dbInit:
+  enabled: true
+  image: "postgis/postgis:16-3.4-alpine"
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+
 # Health check configuration
 livenessProbe:
   httpGet:

@@ -97,12 +97,13 @@ curl http://localhost:8080/health/readiness
 ### Порядок развёртывания
 
 1. **Секреты в Vault** — создать секрет `secret/donweather-ms-georesolve` (см. подраздел «Секреты в Vault» ниже).
-2. **База данных** — создать БД и пользователя, включить PostGIS, создать таблицу (см. подраздел «База данных» ниже).
+2. **База данных** — создать БД и пользователя (см. подраздел «База данных» ниже).
 3. **Application** — применить манифест из репозитория:
    ```bash
    export KUBECONFIG=$HOME/kubeconfig-services-cluster.yaml
    kubectl apply -f .argocd/application.yaml
    ```
+4. **Загрузка городов** — при первом `helm install` автоматически запускается Job (`pre-install` hook), который создаёт таблицу `cities` с PostGIS-индексом и загружает справочник ~1083 городов из `data/koord_russia.csv`. Если таблица уже содержит данные — импорт пропускается.
 
 ### Секреты в Vault
 
@@ -168,24 +169,7 @@ PostgreSQL для Dev может быть в Services кластере (дост
    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO georesolve;
    ```
 
-3. Создать таблицу и индекс:
-   ```sql
-   CREATE TABLE IF NOT EXISTS cities (
-       id SERIAL PRIMARY KEY,
-       name TEXT NOT NULL,
-       geom geometry(Point, 4326) NOT NULL
-   );
-
-   CREATE INDEX IF NOT EXISTS idx_cities_geom ON cities USING GIST (geom);
-   ```
-
-4. Наполнить таблицу городами (пример):
-   ```sql
-   INSERT INTO cities (name, geom) VALUES
-     ('Ростов-на-Дону', ST_SetSRID(ST_Point(39.7015, 47.2357), 4326)),
-     ('Москва',         ST_SetSRID(ST_Point(37.6173, 55.7558), 4326)),
-     ('Санкт-Петербург', ST_SetSRID(ST_Point(30.3351, 59.9343), 4326));
-   ```
+3. Таблица `cities` и загрузка справочника городов создаются автоматически при первом деплое через Helm pre-install Job (см. «Порядок развёртывания»). Ручная инициализация не требуется.
 
 ### Application
 
@@ -209,7 +193,8 @@ kubectl apply -f .argocd/application.yaml
 │   ├── repository/                      — работа с БД (PostGIS)
 │   └── domain/                          — доменные модели
 ├── .argocd/application.yaml             — манифест Argo CD Application
-├── .helm/donweather-ms-georesolve/      — Helm chart
+├── data/koord_russia.csv                — справочник городов РФ (CSV)
+├── .helm/donweather-ms-georesolve/      — Helm chart (включая db-init Job)
 ├── Dockerfile                           — сборка Docker-образа
 ├── Jenkinsfile                          — CI-пайплайн
 └── README.md

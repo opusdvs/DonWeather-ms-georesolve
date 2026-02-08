@@ -1,0 +1,42 @@
+{{- if .Values.dbInit.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "donweather-ms-georesolve.fullname" . }}-db-init
+  labels:
+    {{- include "donweather-ms-georesolve.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-1"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+data:
+  koord_russia.csv: |
+{{ .Files.Get "files/koord_russia.csv" | indent 4 }}
+  init.sql: |
+
+    CREATE TABLE IF NOT EXISTS cities (
+        id   SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        geom geometry(Point, 4326) NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_cities_geom ON cities USING GIST (geom);
+
+    CREATE TEMP TABLE cities_import (
+        city     TEXT,
+        region   TEXT,
+        district TEXT,
+        lat      DOUBLE PRECISION,
+        lng      DOUBLE PRECISION
+    );
+
+    \copy cities_import (city, region, district, lat, lng) FROM '/data/koord_russia.csv' WITH (FORMAT csv, DELIMITER ';', HEADER true, ENCODING 'UTF8');
+
+    INSERT INTO cities (name, geom)
+    SELECT city, ST_SetSRID(ST_Point(lng, lat), 4326)
+    FROM cities_import
+    WHERE lat IS NOT NULL AND lng IS NOT NULL
+    ON CONFLICT DO NOTHING;
+
+    DROP TABLE cities_import;
+{{- end }}

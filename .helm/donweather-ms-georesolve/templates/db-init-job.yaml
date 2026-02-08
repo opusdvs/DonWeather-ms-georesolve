@@ -1,0 +1,123 @@
+{{- if .Values.dbInit.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "donweather-ms-georesolve.fullname" . }}-db-init
+  labels:
+    {{- include "donweather-ms-georesolve.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  ttlSecondsAfterFinished: {{ .Values.dbInit.ttlSecondsAfterFinished | default 300 }}
+  backoffLimit: {{ .Values.dbInit.backoffLimit | default 3 }}
+  template:
+    metadata:
+      labels:
+        {{- include "donweather-ms-georesolve.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range .Values.imagePullSecrets }}
+        {{- if kindIs "string" . }}
+        - name: {{ . }}
+        {{- else if .name }}
+        - name: {{ .name }}
+        {{- end }}
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: db-init
+          image: {{ .Values.dbInit.image | default "postgis/postgis:16-3.4-alpine" }}
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -e
+              echo "=== Creating PostGIS extension, table and index ==="
+              psql "$DATABASE_URL" <<'EOSQL'
+              CREATE EXTENSION IF NOT EXISTS postgis;
+              CREATE TABLE IF NOT EXISTS cities (
+                  id   SERIAL PRIMARY KEY,
+                  name TEXT NOT NULL,
+                  geom geometry(Point, 4326) NOT NULL
+              );
+              CREATE INDEX IF NOT EXISTS idx_cities_geom ON cities USING GIST (geom);
+              EOSQL
+
+              EXISTING=$(psql "$DATABASE_URL" -t -A -c "SELECT COUNT(*) FROM cities")
+              if [ "$EXISTING" -gt 0 ]; then
+                echo "=== Table already has $EXISTING rows, skipping import ==="
+                exit 0
+              fi
+
+              echo "=== Loading cities from CSV ==="
+              psql "$DATABASE_URL" <<'EOSQL'
+              CREATE TEMP TABLE cities_import (
+                  city     TEXT,
+                  region   TEXT,
+                  district TEXT,
+                  lat      DOUBLE PRECISION,
+                  lng      DOUBLE PRECISION
+              );
+              EOSQL
+
+              psql "$DATABASE_URL" -c "\copy cities_import (city, region, district, lat, lng) FROM '/data/koord_russia.csv' WITH (FORMAT csv, DELIMITER ';', HEADER true, ENCODING 'UTF8')"
+
+              psql "$DATABASE_URL" <<'EOSQL'
+              INSERT INTO cities (name, geom)
+              SELECT city, ST_SetSRID(ST_Point(lng, lat), 4326)
+              FROM cities_import
+              WHERE lat IS NOT NULL AND lng IS NOT NULL;
+              DROP TABLE cities_import;
+              EOSQL
+
+              COUNT=$(psql "$DATABASE_URL" -t -A -c "SELECT COUNT(*) FROM cities")
+              echo "=== Done: loaded $COUNT cities ==="
+          env:
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "donweather-ms-georesolve.fullname" . }}-secret
+                  key: db-user
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "donweather-ms-georesolve.fullname" . }}-secret
+                  key: db-password
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "donweather-ms-georesolve.fullname" . }}-secret
+                  key: db-host
+            - name: DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "donweather-ms-georesolve.fullname" . }}-secret
+                  key: db-port
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "donweather-ms-georesolve.fullname" . }}-secret
+                  key: db-name
+            - name: DATABASE_URL
+              value: "postgresql://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=disable"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          volumeMounts:
+            - name: csv-data
+              mountPath: /data
+      volumes:
+        - name: csv-data
+          configMap:
+            name: {{ include "donweather-ms-georesolve.fullname" . }}-db-init
+            items:
+              - key: koord_russia.csv
+                path: koord_russia.csv
+{{- end }}
