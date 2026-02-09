@@ -58,7 +58,7 @@ func main() {
 	mainMux := http.NewServeMux()
 	mainMux.HandleFunc("/health/liveness", healthHandler.LivenessProbe)
 	mainMux.HandleFunc("/health/readiness", healthHandler.ReadinessProbe)
-	mainMux.Handle("/api/v1/georesolve", middleware.TraceMiddleware(http.HandlerFunc(handler.GetCityByCoordinates)))
+	mainMux.Handle("/api/v1/georesolve", middleware.CORSMiddleware(middleware.TraceMiddleware(http.HandlerFunc(handler.GetCityByCoordinates))))
 
 	server := &http.Server{
 		Addr:    ":8080",
