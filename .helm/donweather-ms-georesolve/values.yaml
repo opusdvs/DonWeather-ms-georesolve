@@ -5,7 +5,7 @@ image:
   repository: buildbyte-container-registry.registry.twcstorage.ru/donweather-ms-georesolve
   pullPolicy: IfNotPresent
   tag: "dev"
-  digest: "sha256:0423a2e7562fa9511ceac2d837e7607ead717ec23051556a28c997dd82ec6f10"
+  digest: "sha256:21b210ed74fe3ba89ce3bc540e9836271a62d660fe2e34bde5fbfbe4189e2e71"
 
 
 imagePullSecrets:
